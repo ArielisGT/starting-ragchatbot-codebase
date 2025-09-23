@@ -1,18 +1,20 @@
-import pytest
-from unittest.mock import Mock, MagicMock, patch
-import sys
 import os
+import sys
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 # Add backend to path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
+from models import Course, CourseChunk, Lesson
 from rag_system import RAGSystem
-from models import Course, Lesson, CourseChunk
 from vector_store import SearchResults
 
 
 class MockConfig:
     """Mock configuration for testing"""
+
     CHUNK_SIZE = 800
     CHUNK_OVERLAP = 100
     CHROMA_PATH = "./test_chroma_db"
@@ -32,25 +34,28 @@ class TestRAGSystemInitialization:
 
     def test_rag_system_initialization(self, mock_config):
         """Test that RAG system initializes all components correctly"""
-        with patch('rag_system.DocumentProcessor') as mock_doc_proc, \
-             patch('rag_system.VectorStore') as mock_vector_store, \
-             patch('rag_system.AIGenerator') as mock_ai_gen, \
-             patch('rag_system.SessionManager') as mock_session_mgr, \
-             patch('rag_system.ToolManager') as mock_tool_mgr, \
-             patch('rag_system.CourseSearchTool') as mock_search_tool:
+        with (
+            patch("rag_system.DocumentProcessor") as mock_doc_proc,
+            patch("rag_system.VectorStore") as mock_vector_store,
+            patch("rag_system.AIGenerator") as mock_ai_gen,
+            patch("rag_system.SessionManager") as mock_session_mgr,
+            patch("rag_system.ToolManager") as mock_tool_mgr,
+            patch("rag_system.CourseSearchTool") as mock_search_tool,
+        ):
 
             rag_system = RAGSystem(mock_config)
 
             # Verify all components were initialized with correct parameters
-            mock_doc_proc.assert_called_once_with(mock_config.CHUNK_SIZE, mock_config.CHUNK_OVERLAP)
+            mock_doc_proc.assert_called_once_with(
+                mock_config.CHUNK_SIZE, mock_config.CHUNK_OVERLAP
+            )
             mock_vector_store.assert_called_once_with(
                 mock_config.CHROMA_PATH,
                 mock_config.EMBEDDING_MODEL,
-                mock_config.MAX_RESULTS
+                mock_config.MAX_RESULTS,
             )
             mock_ai_gen.assert_called_once_with(
-                mock_config.ANTHROPIC_API_KEY,
-                mock_config.ANTHROPIC_MODEL
+                mock_config.ANTHROPIC_API_KEY, mock_config.ANTHROPIC_MODEL
             )
             mock_session_mgr.assert_called_once_with(mock_config.MAX_HISTORY)
 
@@ -59,12 +64,14 @@ class TestRAGSystemInitialization:
 
     def test_search_tool_integration(self, mock_config):
         """Test that search tool is properly integrated"""
-        with patch('rag_system.DocumentProcessor'), \
-             patch('rag_system.VectorStore') as mock_vector_store, \
-             patch('rag_system.AIGenerator'), \
-             patch('rag_system.SessionManager'), \
-             patch('rag_system.ToolManager') as mock_tool_mgr, \
-             patch('rag_system.CourseSearchTool') as mock_search_tool:
+        with (
+            patch("rag_system.DocumentProcessor"),
+            patch("rag_system.VectorStore") as mock_vector_store,
+            patch("rag_system.AIGenerator"),
+            patch("rag_system.SessionManager"),
+            patch("rag_system.ToolManager") as mock_tool_mgr,
+            patch("rag_system.CourseSearchTool") as mock_search_tool,
+        ):
 
             rag_system = RAGSystem(mock_config)
 
@@ -85,12 +92,14 @@ class TestRAGSystemQuery:
         """Create a RAG system with all components mocked"""
         config = MockConfig()
 
-        with patch('rag_system.DocumentProcessor') as mock_doc_proc, \
-             patch('rag_system.VectorStore') as mock_vector_store, \
-             patch('rag_system.AIGenerator') as mock_ai_gen, \
-             patch('rag_system.SessionManager') as mock_session_mgr, \
-             patch('rag_system.ToolManager') as mock_tool_mgr, \
-             patch('rag_system.CourseSearchTool'):
+        with (
+            patch("rag_system.DocumentProcessor") as mock_doc_proc,
+            patch("rag_system.VectorStore") as mock_vector_store,
+            patch("rag_system.AIGenerator") as mock_ai_gen,
+            patch("rag_system.SessionManager") as mock_session_mgr,
+            patch("rag_system.ToolManager") as mock_tool_mgr,
+            patch("rag_system.CourseSearchTool"),
+        ):
 
             rag_system = RAGSystem(config)
 
@@ -114,7 +123,10 @@ class TestRAGSystemQuery:
         mock_rag_system.mock_ai_generator.generate_response.assert_called_once()
         call_args = mock_rag_system.mock_ai_generator.generate_response.call_args
 
-        assert call_args[1]["query"] == "Answer this question about course materials: What is Python?"
+        assert (
+            call_args[1]["query"]
+            == "Answer this question about course materials: What is Python?"
+        )
         assert call_args[1]["conversation_history"] is None
         assert "tools" in call_args[1]
         assert "tool_manager" in call_args[1]
@@ -135,18 +147,28 @@ class TestRAGSystemQuery:
         mock_rag_system.mock_session_manager.get_conversation_history.return_value = (
             "User: Hello\nAssistant: Hi there!"
         )
-        mock_rag_system.mock_ai_generator.generate_response.return_value = "AI response with context"
-        mock_rag_system.mock_tool_manager.get_last_sources.return_value = ["Course 1 - Lesson 1"]
+        mock_rag_system.mock_ai_generator.generate_response.return_value = (
+            "AI response with context"
+        )
+        mock_rag_system.mock_tool_manager.get_last_sources.return_value = [
+            "Course 1 - Lesson 1"
+        ]
 
         # Execute query
-        response, sources = mock_rag_system.query("Follow up question", session_id="session_1")
+        response, sources = mock_rag_system.query(
+            "Follow up question", session_id="session_1"
+        )
 
         # Verify conversation history was retrieved
-        mock_rag_system.mock_session_manager.get_conversation_history.assert_called_once_with("session_1")
+        mock_rag_system.mock_session_manager.get_conversation_history.assert_called_once_with(
+            "session_1"
+        )
 
         # Verify AI generator received history
         call_args = mock_rag_system.mock_ai_generator.generate_response.call_args
-        assert call_args[1]["conversation_history"] == "User: Hello\nAssistant: Hi there!"
+        assert (
+            call_args[1]["conversation_history"] == "User: Hello\nAssistant: Hi there!"
+        )
 
         # Verify session was updated
         mock_rag_system.mock_session_manager.add_exchange.assert_called_once_with(
@@ -159,10 +181,12 @@ class TestRAGSystemQuery:
     def test_query_with_sources_tracking(self, mock_rag_system):
         """Test that sources are properly tracked and returned"""
         # Setup mocks with sources
-        mock_rag_system.mock_ai_generator.generate_response.return_value = "Response with sources"
+        mock_rag_system.mock_ai_generator.generate_response.return_value = (
+            "Response with sources"
+        )
         mock_rag_system.mock_tool_manager.get_last_sources.return_value = [
             "Python Course - Lesson 1",
-            "Python Course - Lesson 2"
+            "Python Course - Lesson 2",
         ]
 
         # Execute query
@@ -201,7 +225,9 @@ class TestRAGSystemQuery:
 
         # Verify tools were passed to AI generator
         call_args = mock_rag_system.mock_ai_generator.generate_response.call_args
-        assert call_args[1]["tools"] == [{"name": "search_course_content", "description": "Search tool"}]
+        assert call_args[1]["tools"] == [
+            {"name": "search_course_content", "description": "Search tool"}
+        ]
         assert call_args[1]["tool_manager"] == mock_rag_system.mock_tool_manager
 
 
@@ -213,11 +239,13 @@ class TestRAGSystemDocumentProcessing:
         """Create RAG system with real document processor but mocked storage"""
         config = MockConfig()
 
-        with patch('rag_system.VectorStore') as mock_vector_store, \
-             patch('rag_system.AIGenerator'), \
-             patch('rag_system.SessionManager'), \
-             patch('rag_system.ToolManager'), \
-             patch('rag_system.CourseSearchTool'):
+        with (
+            patch("rag_system.VectorStore") as mock_vector_store,
+            patch("rag_system.AIGenerator"),
+            patch("rag_system.SessionManager"),
+            patch("rag_system.ToolManager"),
+            patch("rag_system.CourseSearchTool"),
+        ):
 
             rag_system = RAGSystem(config)
             rag_system.mock_vector_store = mock_vector_store.return_value
@@ -229,22 +257,31 @@ class TestRAGSystemDocumentProcessing:
         mock_course = Course(title="Test Course", lessons=[])
         mock_chunks = [
             CourseChunk(content="Chunk 1", course_title="Test Course", chunk_index=0),
-            CourseChunk(content="Chunk 2", course_title="Test Course", chunk_index=1)
+            CourseChunk(content="Chunk 2", course_title="Test Course", chunk_index=1),
         ]
 
         # Mock document processor
-        with patch.object(rag_system_with_real_components.document_processor, 'process_course_document') as mock_process:
+        with patch.object(
+            rag_system_with_real_components.document_processor,
+            "process_course_document",
+        ) as mock_process:
             mock_process.return_value = (mock_course, mock_chunks)
 
             # Execute
-            course, chunk_count = rag_system_with_real_components.add_course_document("test_file.txt")
+            course, chunk_count = rag_system_with_real_components.add_course_document(
+                "test_file.txt"
+            )
 
             # Verify processing
             mock_process.assert_called_once_with("test_file.txt")
 
             # Verify vector store calls
-            rag_system_with_real_components.mock_vector_store.add_course_metadata.assert_called_once_with(mock_course)
-            rag_system_with_real_components.mock_vector_store.add_course_content.assert_called_once_with(mock_chunks)
+            rag_system_with_real_components.mock_vector_store.add_course_metadata.assert_called_once_with(
+                mock_course
+            )
+            rag_system_with_real_components.mock_vector_store.add_course_content.assert_called_once_with(
+                mock_chunks
+            )
 
             assert course == mock_course
             assert chunk_count == 2
@@ -252,11 +289,16 @@ class TestRAGSystemDocumentProcessing:
     def test_add_course_document_error(self, rag_system_with_real_components):
         """Test handling of document processing errors"""
         # Mock error in document processing
-        with patch.object(rag_system_with_real_components.document_processor, 'process_course_document') as mock_process:
+        with patch.object(
+            rag_system_with_real_components.document_processor,
+            "process_course_document",
+        ) as mock_process:
             mock_process.side_effect = Exception("File not found")
 
             # Execute
-            course, chunk_count = rag_system_with_real_components.add_course_document("nonexistent.txt")
+            course, chunk_count = rag_system_with_real_components.add_course_document(
+                "nonexistent.txt"
+            )
 
             # Verify error handling
             assert course is None
@@ -266,42 +308,63 @@ class TestRAGSystemDocumentProcessing:
             rag_system_with_real_components.mock_vector_store.add_course_metadata.assert_not_called()
             rag_system_with_real_components.mock_vector_store.add_course_content.assert_not_called()
 
-    def test_add_course_folder_with_existing_courses(self, rag_system_with_real_components):
+    def test_add_course_folder_with_existing_courses(
+        self, rag_system_with_real_components
+    ):
         """Test adding course folder with duplicate detection"""
         # Mock existing course titles
-        rag_system_with_real_components.mock_vector_store.get_existing_course_titles.return_value = ["Existing Course"]
+        rag_system_with_real_components.mock_vector_store.get_existing_course_titles.return_value = [
+            "Existing Course"
+        ]
 
         # Mock file system
-        with patch('rag_system.os.path.exists', return_value=True), \
-             patch('rag_system.os.listdir', return_value=["course1.txt", "course2.txt"]), \
-             patch('rag_system.os.path.isfile', return_value=True):
+        with (
+            patch("rag_system.os.path.exists", return_value=True),
+            patch("rag_system.os.listdir", return_value=["course1.txt", "course2.txt"]),
+            patch("rag_system.os.path.isfile", return_value=True),
+        ):
 
             # Mock course processing
             new_course = Course(title="New Course", lessons=[])
             existing_course = Course(title="Existing Course", lessons=[])
-            mock_chunks = [CourseChunk(content="test", course_title="New Course", chunk_index=0)]
+            mock_chunks = [
+                CourseChunk(content="test", course_title="New Course", chunk_index=0)
+            ]
 
-            with patch.object(rag_system_with_real_components.document_processor, 'process_course_document') as mock_process:
+            with patch.object(
+                rag_system_with_real_components.document_processor,
+                "process_course_document",
+            ) as mock_process:
                 mock_process.side_effect = [
                     (new_course, mock_chunks),  # New course
-                    (existing_course, [])       # Existing course
+                    (existing_course, []),  # Existing course
                 ]
 
                 # Execute
-                total_courses, total_chunks = rag_system_with_real_components.add_course_folder("test_folder")
+                total_courses, total_chunks = (
+                    rag_system_with_real_components.add_course_folder("test_folder")
+                )
 
                 # Verify only new course was added
                 assert total_courses == 1
                 assert total_chunks == 1
 
                 # Verify vector store calls for new course only
-                rag_system_with_real_components.mock_vector_store.add_course_metadata.assert_called_once_with(new_course)
-                rag_system_with_real_components.mock_vector_store.add_course_content.assert_called_once_with(mock_chunks)
+                rag_system_with_real_components.mock_vector_store.add_course_metadata.assert_called_once_with(
+                    new_course
+                )
+                rag_system_with_real_components.mock_vector_store.add_course_content.assert_called_once_with(
+                    mock_chunks
+                )
 
-    def test_add_course_folder_nonexistent_folder(self, rag_system_with_real_components):
+    def test_add_course_folder_nonexistent_folder(
+        self, rag_system_with_real_components
+    ):
         """Test handling of nonexistent folder"""
-        with patch('rag_system.os.path.exists', return_value=False):
-            courses, chunks = rag_system_with_real_components.add_course_folder("nonexistent")
+        with patch("rag_system.os.path.exists", return_value=False):
+            courses, chunks = rag_system_with_real_components.add_course_folder(
+                "nonexistent"
+            )
 
             assert courses == 0
             assert chunks == 0
@@ -315,12 +378,14 @@ class TestRAGSystemAnalytics:
         """Create RAG system for analytics testing"""
         config = MockConfig()
 
-        with patch('rag_system.DocumentProcessor'), \
-             patch('rag_system.VectorStore') as mock_vector_store, \
-             patch('rag_system.AIGenerator'), \
-             patch('rag_system.SessionManager'), \
-             patch('rag_system.ToolManager'), \
-             patch('rag_system.CourseSearchTool'):
+        with (
+            patch("rag_system.DocumentProcessor"),
+            patch("rag_system.VectorStore") as mock_vector_store,
+            patch("rag_system.AIGenerator"),
+            patch("rag_system.SessionManager"),
+            patch("rag_system.ToolManager"),
+            patch("rag_system.CourseSearchTool"),
+        ):
 
             rag_system = RAGSystem(config)
             rag_system.mock_vector_store = mock_vector_store.return_value
@@ -331,7 +396,11 @@ class TestRAGSystemAnalytics:
         # Mock vector store responses
         rag_system_analytics.mock_vector_store.get_course_count.return_value = 5
         rag_system_analytics.mock_vector_store.get_existing_course_titles.return_value = [
-            "Python Basics", "JavaScript Fundamentals", "Data Science", "Machine Learning", "Web Development"
+            "Python Basics",
+            "JavaScript Fundamentals",
+            "Data Science",
+            "Machine Learning",
+            "Web Development",
         ]
 
         # Execute
@@ -351,12 +420,14 @@ class TestRAGSystemErrorHandling:
         """Create RAG system for error testing"""
         config = MockConfig()
 
-        with patch('rag_system.DocumentProcessor'), \
-             patch('rag_system.VectorStore'), \
-             patch('rag_system.AIGenerator') as mock_ai_gen, \
-             patch('rag_system.SessionManager') as mock_session_mgr, \
-             patch('rag_system.ToolManager') as mock_tool_mgr, \
-             patch('rag_system.CourseSearchTool'):
+        with (
+            patch("rag_system.DocumentProcessor"),
+            patch("rag_system.VectorStore"),
+            patch("rag_system.AIGenerator") as mock_ai_gen,
+            patch("rag_system.SessionManager") as mock_session_mgr,
+            patch("rag_system.ToolManager") as mock_tool_mgr,
+            patch("rag_system.CourseSearchTool"),
+        ):
 
             rag_system = RAGSystem(config)
             rag_system.mock_ai_generator = mock_ai_gen.return_value
@@ -367,7 +438,9 @@ class TestRAGSystemErrorHandling:
     def test_query_ai_generator_error(self, rag_system_error_test):
         """Test handling of AI generator errors"""
         # Mock AI generator to raise exception
-        rag_system_error_test.mock_ai_generator.generate_response.side_effect = Exception("API error")
+        rag_system_error_test.mock_ai_generator.generate_response.side_effect = (
+            Exception("API error")
+        )
         rag_system_error_test.mock_tool_manager.get_last_sources.return_value = []
 
         # This should propagate the exception (as it does in the actual code)
@@ -377,8 +450,12 @@ class TestRAGSystemErrorHandling:
     def test_query_tool_manager_error(self, rag_system_error_test):
         """Test handling of tool manager errors"""
         # Mock tool manager to raise exception
-        rag_system_error_test.mock_ai_generator.generate_response.return_value = "response"
-        rag_system_error_test.mock_tool_manager.get_last_sources.side_effect = Exception("Tool error")
+        rag_system_error_test.mock_ai_generator.generate_response.return_value = (
+            "response"
+        )
+        rag_system_error_test.mock_tool_manager.get_last_sources.side_effect = (
+            Exception("Tool error")
+        )
 
         # This should propagate the exception
         with pytest.raises(Exception, match="Tool error"):
@@ -387,7 +464,9 @@ class TestRAGSystemErrorHandling:
     def test_query_session_manager_error(self, rag_system_error_test):
         """Test handling of session manager errors"""
         # Mock session manager to raise exception
-        rag_system_error_test.mock_session_manager.get_conversation_history.side_effect = Exception("Session error")
+        rag_system_error_test.mock_session_manager.get_conversation_history.side_effect = Exception(
+            "Session error"
+        )
 
         # This should propagate the exception
         with pytest.raises(Exception, match="Session error"):

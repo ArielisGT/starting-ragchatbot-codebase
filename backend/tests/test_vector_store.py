@@ -1,13 +1,14 @@
-import pytest
-from unittest.mock import Mock, MagicMock, patch
-import sys
 import os
+import sys
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 # Add backend to path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from vector_store import VectorStore, SearchResults
-from models import Course, Lesson, CourseChunk
+from models import Course, CourseChunk, Lesson
+from vector_store import SearchResults, VectorStore
 
 
 class TestSearchResults:
@@ -16,25 +17,24 @@ class TestSearchResults:
     def test_from_chroma_with_results(self):
         """Test creating SearchResults from ChromaDB results"""
         chroma_results = {
-            'documents': [['doc1', 'doc2']],
-            'metadatas': [[{'course_title': 'Course1'}, {'course_title': 'Course2'}]],
-            'distances': [[0.1, 0.2]]
+            "documents": [["doc1", "doc2"]],
+            "metadatas": [[{"course_title": "Course1"}, {"course_title": "Course2"}]],
+            "distances": [[0.1, 0.2]],
         }
 
         results = SearchResults.from_chroma(chroma_results)
 
-        assert results.documents == ['doc1', 'doc2']
-        assert results.metadata == [{'course_title': 'Course1'}, {'course_title': 'Course2'}]
+        assert results.documents == ["doc1", "doc2"]
+        assert results.metadata == [
+            {"course_title": "Course1"},
+            {"course_title": "Course2"},
+        ]
         assert results.distances == [0.1, 0.2]
         assert results.error is None
 
     def test_from_chroma_empty_results(self):
         """Test creating SearchResults from empty ChromaDB results"""
-        chroma_results = {
-            'documents': [[]],
-            'metadatas': [[]],
-            'distances': [[]]
-        }
+        chroma_results = {"documents": [[]], "metadatas": [[]], "distances": [[]]}
 
         results = SearchResults.from_chroma(chroma_results)
 
@@ -45,11 +45,7 @@ class TestSearchResults:
 
     def test_from_chroma_no_results(self):
         """Test creating SearchResults from ChromaDB with no results"""
-        chroma_results = {
-            'documents': [],
-            'metadatas': [],
-            'distances': []
-        }
+        chroma_results = {"documents": [], "metadatas": [], "distances": []}
 
         results = SearchResults.from_chroma(chroma_results)
 
@@ -73,7 +69,7 @@ class TestSearchResults:
         assert empty_results.is_empty()
 
         # Non-empty results
-        results_with_data = SearchResults(['doc1'], [{'title': 'test'}], [0.1])
+        results_with_data = SearchResults(["doc1"], [{"title": "test"}], [0.1])
         assert not results_with_data.is_empty()
 
 
@@ -83,14 +79,17 @@ class TestVectorStore:
     @pytest.fixture
     def mock_chroma_client(self):
         """Create mock ChromaDB client"""
-        with patch('vector_store.chromadb.PersistentClient') as mock_client:
+        with patch("vector_store.chromadb.PersistentClient") as mock_client:
             mock_instance = Mock()
             mock_client.return_value = mock_instance
 
             # Mock collections
             mock_catalog = Mock()
             mock_content = Mock()
-            mock_instance.get_or_create_collection.side_effect = [mock_catalog, mock_content]
+            mock_instance.get_or_create_collection.side_effect = [
+                mock_catalog,
+                mock_content,
+            ]
 
             yield mock_instance, mock_catalog, mock_content
 
@@ -99,7 +98,9 @@ class TestVectorStore:
         """Create VectorStore instance with mocked ChromaDB"""
         mock_client, mock_catalog, mock_content = mock_chroma_client
 
-        with patch('vector_store.chromadb.utils.embedding_functions.SentenceTransformerEmbeddingFunction'):
+        with patch(
+            "vector_store.chromadb.utils.embedding_functions.SentenceTransformerEmbeddingFunction"
+        ):
             store = VectorStore("./test_db", "test-model", max_results=3)
             store.client = mock_client
             store.course_catalog = mock_catalog
@@ -108,8 +109,12 @@ class TestVectorStore:
 
     def test_vector_store_initialization(self):
         """Test VectorStore initialization"""
-        with patch('vector_store.chromadb.PersistentClient') as mock_client, \
-             patch('vector_store.chromadb.utils.embedding_functions.SentenceTransformerEmbeddingFunction') as mock_embedding:
+        with (
+            patch("vector_store.chromadb.PersistentClient") as mock_client,
+            patch(
+                "vector_store.chromadb.utils.embedding_functions.SentenceTransformerEmbeddingFunction"
+            ) as mock_embedding,
+        ):
 
             mock_instance = Mock()
             mock_client.return_value = mock_instance
@@ -131,9 +136,9 @@ class TestVectorStore:
 
         # Mock search results
         mock_content.query.return_value = {
-            'documents': [['Test document content']],
-            'metadatas': [[{'course_title': 'Test Course', 'lesson_number': 1}]],
-            'distances': [[0.1]]
+            "documents": [["Test document content"]],
+            "metadatas": [[{"course_title": "Test Course", "lesson_number": 1}]],
+            "distances": [[0.1]],
         }
 
         # Execute search
@@ -141,15 +146,13 @@ class TestVectorStore:
 
         # Verify query was called correctly
         mock_content.query.assert_called_once_with(
-            query_texts=["test query"],
-            n_results=3,
-            where=None
+            query_texts=["test query"], n_results=3, where=None
         )
 
         # Verify results
         assert len(results.documents) == 1
         assert results.documents[0] == "Test document content"
-        assert results.metadata[0]['course_title'] == 'Test Course'
+        assert results.metadata[0]["course_title"] == "Test Course"
         assert results.error is None
 
     def test_search_with_course_filter(self, vector_store):
@@ -158,32 +161,29 @@ class TestVectorStore:
 
         # Mock course resolution
         mock_catalog.query.return_value = {
-            'documents': [['Python Basics Course']],
-            'metadatas': [[{'title': 'Python Basics'}]],
-            'distances': [[0.05]]
+            "documents": [["Python Basics Course"]],
+            "metadatas": [[{"title": "Python Basics"}]],
+            "distances": [[0.05]],
         }
 
         # Mock content search
         mock_content.query.return_value = {
-            'documents': [['Python content']],
-            'metadatas': [[{'course_title': 'Python Basics'}]],
-            'distances': [[0.1]]
+            "documents": [["Python content"]],
+            "metadatas": [[{"course_title": "Python Basics"}]],
+            "distances": [[0.1]],
         }
 
         # Execute search with course filter
         results = store.search("functions", course_name="Python")
 
         # Verify course resolution was called
-        mock_catalog.query.assert_called_once_with(
-            query_texts=["Python"],
-            n_results=1
-        )
+        mock_catalog.query.assert_called_once_with(query_texts=["Python"], n_results=1)
 
         # Verify content search with filter
         mock_content.query.assert_called_once_with(
             query_texts=["functions"],
             n_results=3,
-            where={"course_title": "Python Basics"}
+            where={"course_title": "Python Basics"},
         )
 
         assert len(results.documents) == 1
@@ -195,9 +195,9 @@ class TestVectorStore:
 
         # Mock content search
         mock_content.query.return_value = {
-            'documents': [['Lesson content']],
-            'metadatas': [[{'course_title': 'Test Course', 'lesson_number': 5}]],
-            'distances': [[0.1]]
+            "documents": [["Lesson content"]],
+            "metadatas": [[{"course_title": "Test Course", "lesson_number": 5}]],
+            "distances": [[0.1]],
         }
 
         # Execute search with lesson filter
@@ -205,9 +205,7 @@ class TestVectorStore:
 
         # Verify content search with lesson filter
         mock_content.query.assert_called_once_with(
-            query_texts=["test query"],
-            n_results=3,
-            where={"lesson_number": 5}
+            query_texts=["test query"], n_results=3, where={"lesson_number": 5}
         )
 
         assert len(results.documents) == 1
@@ -218,29 +216,28 @@ class TestVectorStore:
 
         # Mock course resolution
         mock_catalog.query.return_value = {
-            'documents': [['Course']],
-            'metadatas': [[{'title': 'Advanced Python'}]],
-            'distances': [[0.05]]
+            "documents": [["Course"]],
+            "metadatas": [[{"title": "Advanced Python"}]],
+            "distances": [[0.05]],
         }
 
         # Mock content search
         mock_content.query.return_value = {
-            'documents': [['Specific content']],
-            'metadatas': [[{'course_title': 'Advanced Python', 'lesson_number': 3}]],
-            'distances': [[0.1]]
+            "documents": [["Specific content"]],
+            "metadatas": [[{"course_title": "Advanced Python", "lesson_number": 3}]],
+            "distances": [[0.1]],
         }
 
         # Execute search with both filters
-        results = store.search("decorators", course_name="Advanced Python", lesson_number=3)
+        results = store.search(
+            "decorators", course_name="Advanced Python", lesson_number=3
+        )
 
         # Verify filter combination
         mock_content.query.assert_called_once_with(
             query_texts=["decorators"],
             n_results=3,
-            where={"$and": [
-                {"course_title": "Advanced Python"},
-                {"lesson_number": 3}
-            ]}
+            where={"$and": [{"course_title": "Advanced Python"}, {"lesson_number": 3}]},
         )
 
         assert len(results.documents) == 1
@@ -251,9 +248,9 @@ class TestVectorStore:
 
         # Mock empty course resolution
         mock_catalog.query.return_value = {
-            'documents': [[]],
-            'metadatas': [[]],
-            'distances': [[]]
+            "documents": [[]],
+            "metadatas": [[]],
+            "distances": [[]],
         }
 
         # Execute search
@@ -286,9 +283,9 @@ class TestVectorStore:
 
         # Mock successful resolution
         mock_catalog.query.return_value = {
-            'documents': [['Python Programming Course']],
-            'metadatas': [[{'title': 'Python Programming'}]],
-            'distances': [[0.1]]
+            "documents": [["Python Programming Course"]],
+            "metadatas": [[{"title": "Python Programming"}]],
+            "distances": [[0.1]],
         }
 
         # Test resolution
@@ -326,10 +323,9 @@ class TestVectorStore:
 
         # Test both filters
         filter_dict = store._build_filter("Test Course", 5)
-        assert filter_dict == {"$and": [
-            {"course_title": "Test Course"},
-            {"lesson_number": 5}
-        ]}
+        assert filter_dict == {
+            "$and": [{"course_title": "Test Course"}, {"lesson_number": 5}]
+        }
 
     def test_add_course_metadata(self, vector_store):
         """Test adding course metadata"""
@@ -337,14 +333,16 @@ class TestVectorStore:
 
         # Create test course
         lessons = [
-            Lesson(lesson_number=1, title="Introduction", lesson_link="http://lesson1.com"),
-            Lesson(lesson_number=2, title="Basics", lesson_link="http://lesson2.com")
+            Lesson(
+                lesson_number=1, title="Introduction", lesson_link="http://lesson1.com"
+            ),
+            Lesson(lesson_number=2, title="Basics", lesson_link="http://lesson2.com"),
         ]
         course = Course(
             title="Test Course",
             course_link="http://course.com",
             instructor="Test Instructor",
-            lessons=lessons
+            lessons=lessons,
         )
 
         # Add metadata
@@ -367,6 +365,7 @@ class TestVectorStore:
 
         # Check lessons JSON
         import json
+
         lessons_data = json.loads(metadata["lessons_json"])
         assert len(lessons_data) == 2
         assert lessons_data[0]["lesson_number"] == 1
@@ -382,14 +381,14 @@ class TestVectorStore:
                 content="First chunk content",
                 course_title="Test Course",
                 lesson_number=1,
-                chunk_index=0
+                chunk_index=0,
             ),
             CourseChunk(
                 content="Second chunk content",
                 course_title="Test Course",
                 lesson_number=1,
-                chunk_index=1
-            )
+                chunk_index=1,
+            ),
         ]
 
         # Add content
@@ -400,7 +399,10 @@ class TestVectorStore:
         call_args = mock_content.add.call_args
 
         # Check documents
-        assert call_args[1]["documents"] == ["First chunk content", "Second chunk content"]
+        assert call_args[1]["documents"] == [
+            "First chunk content",
+            "Second chunk content",
+        ]
 
         # Check metadata
         metadata = call_args[1]["metadatas"]
@@ -446,15 +448,13 @@ class TestVectorStore:
         store, mock_catalog, mock_content = vector_store
 
         # Mock catalog response
-        mock_catalog.get.return_value = {
-            'ids': ['Course 1', 'Course 2', 'Course 3']
-        }
+        mock_catalog.get.return_value = {"ids": ["Course 1", "Course 2", "Course 3"]}
 
         # Get titles
         titles = store.get_existing_course_titles()
 
         # Verify
-        assert titles == ['Course 1', 'Course 2', 'Course 3']
+        assert titles == ["Course 1", "Course 2", "Course 3"]
 
     def test_get_existing_course_titles_error(self, vector_store):
         """Test error handling in get_existing_course_titles"""
@@ -474,9 +474,7 @@ class TestVectorStore:
         store, mock_catalog, mock_content = vector_store
 
         # Mock catalog response
-        mock_catalog.get.return_value = {
-            'ids': ['Course 1', 'Course 2']
-        }
+        mock_catalog.get.return_value = {"ids": ["Course 1", "Course 2"]}
 
         # Get count
         count = store.get_course_count()
@@ -503,9 +501,9 @@ class TestVectorStore:
 
         # Mock content search
         mock_content.query.return_value = {
-            'documents': [['doc1', 'doc2']],
-            'metadatas': [[{}, {}]],
-            'distances': [[0.1, 0.2]]
+            "documents": [["doc1", "doc2"]],
+            "metadatas": [[{}, {}]],
+            "distances": [[0.1, 0.2]],
         }
 
         # Execute search with custom limit
@@ -513,9 +511,7 @@ class TestVectorStore:
 
         # Verify custom limit was used
         mock_content.query.assert_called_once_with(
-            query_texts=["test query"],
-            n_results=10,
-            where=None
+            query_texts=["test query"], n_results=10, where=None
         )
 
     def test_get_course_link(self, vector_store):
@@ -524,7 +520,7 @@ class TestVectorStore:
 
         # Mock catalog response
         mock_catalog.get.return_value = {
-            'metadatas': [{'course_link': 'http://example.com/course'}]
+            "metadatas": [{"course_link": "http://example.com/course"}]
         }
 
         # Get course link
@@ -540,9 +536,7 @@ class TestVectorStore:
 
         # Mock catalog response with lessons JSON
         lessons_json = '[{"lesson_number": 1, "lesson_link": "http://lesson1.com"}, {"lesson_number": 2, "lesson_link": "http://lesson2.com"}]'
-        mock_catalog.get.return_value = {
-            'metadatas': [{'lessons_json': lessons_json}]
-        }
+        mock_catalog.get.return_value = {"metadatas": [{"lessons_json": lessons_json}]}
 
         # Get lesson link
         link = store.get_lesson_link("Test Course", 2)

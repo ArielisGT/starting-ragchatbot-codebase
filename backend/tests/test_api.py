@@ -1,13 +1,14 @@
-import pytest
-from unittest.mock import Mock, MagicMock, patch
-import sys
 import os
+import sys
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 # Add backend to path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from fastapi.testclient import TestClient
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 
 
 class TestFastAPIEndpoints:
@@ -16,7 +17,7 @@ class TestFastAPIEndpoints:
     @pytest.fixture
     def mock_rag_system(self):
         """Create mock RAG system"""
-        with patch('app.RAGSystem') as mock_rag_class:
+        with patch("app.RAGSystem") as mock_rag_class:
             mock_rag_instance = Mock()
             mock_rag_class.return_value = mock_rag_instance
 
@@ -30,10 +31,10 @@ class TestFastAPIEndpoints:
     def test_client(self, mock_rag_system):
         """Create test client with mocked RAG system"""
         # Import app after mocking
-        from app import app
-
         # Replace the global rag_system with our mock
         import app as app_module
+        from app import app
+
         app_module.rag_system = mock_rag_system
 
         return TestClient(app), mock_rag_system
@@ -45,21 +46,22 @@ class TestFastAPIEndpoints:
         # Mock successful query response
         mock_rag_system.query.return_value = (
             "Python is a programming language used for...",
-            ["Python Course - Lesson 1", "Python Course - Lesson 2"]
+            ["Python Course - Lesson 1", "Python Course - Lesson 2"],
         )
         mock_rag_system.session_manager.create_session.return_value = "session_123"
 
         # Make request
-        response = client.post("/api/query", json={
-            "query": "What is Python?"
-        })
+        response = client.post("/api/query", json={"query": "What is Python?"})
 
         # Verify response
         assert response.status_code == 200
         data = response.json()
 
         assert data["answer"] == "Python is a programming language used for..."
-        assert data["sources"] == ["Python Course - Lesson 1", "Python Course - Lesson 2"]
+        assert data["sources"] == [
+            "Python Course - Lesson 1",
+            "Python Course - Lesson 2",
+        ]
         assert data["session_id"] == "session_123"
 
         # Verify RAG system was called correctly
@@ -72,14 +74,14 @@ class TestFastAPIEndpoints:
         # Mock query response
         mock_rag_system.query.return_value = (
             "Follow-up answer with context",
-            ["Course A - Lesson 3"]
+            ["Course A - Lesson 3"],
         )
 
         # Make request with session ID
-        response = client.post("/api/query", json={
-            "query": "Can you elaborate?",
-            "session_id": "existing_session_456"
-        })
+        response = client.post(
+            "/api/query",
+            json={"query": "Can you elaborate?", "session_id": "existing_session_456"},
+        )
 
         # Verify response
         assert response.status_code == 200
@@ -90,7 +92,9 @@ class TestFastAPIEndpoints:
         assert data["session_id"] == "existing_session_456"
 
         # Verify RAG system was called with existing session
-        mock_rag_system.query.assert_called_once_with("Can you elaborate?", "existing_session_456")
+        mock_rag_system.query.assert_called_once_with(
+            "Can you elaborate?", "existing_session_456"
+        )
         # Session creation should not be called
         mock_rag_system.session_manager.create_session.assert_not_called()
 
@@ -101,14 +105,12 @@ class TestFastAPIEndpoints:
         # Mock query response with empty sources
         mock_rag_system.query.return_value = (
             "This is general knowledge, not course-specific.",
-            []
+            [],
         )
         mock_rag_system.session_manager.create_session.return_value = "session_789"
 
         # Make request
-        response = client.post("/api/query", json={
-            "query": "What is 2+2?"
-        })
+        response = client.post("/api/query", json={"query": "What is 2+2?"})
 
         # Verify response
         assert response.status_code == 200
@@ -127,9 +129,7 @@ class TestFastAPIEndpoints:
         mock_rag_system.session_manager.create_session.return_value = "session_error"
 
         # Make request
-        response = client.post("/api/query", json={
-            "query": "What is Python?"
-        })
+        response = client.post("/api/query", json={"query": "What is Python?"})
 
         # Verify error response
         assert response.status_code == 500
@@ -142,12 +142,12 @@ class TestFastAPIEndpoints:
         client, mock_rag_system = test_client
 
         # Mock session creation to fail
-        mock_rag_system.session_manager.create_session.side_effect = Exception("Session error")
+        mock_rag_system.session_manager.create_session.side_effect = Exception(
+            "Session error"
+        )
 
         # Make request without session ID
-        response = client.post("/api/query", json={
-            "query": "Test query"
-        })
+        response = client.post("/api/query", json={"query": "Test query"})
 
         # Verify error response
         assert response.status_code == 500
@@ -158,10 +158,13 @@ class TestFastAPIEndpoints:
         client, mock_rag_system = test_client
 
         # Make request with missing query field
-        response = client.post("/api/query", json={
-            "session_id": "test_session"
-            # Missing "query" field
-        })
+        response = client.post(
+            "/api/query",
+            json={
+                "session_id": "test_session"
+                # Missing "query" field
+            },
+        )
 
         # Verify validation error
         assert response.status_code == 422  # Validation error
@@ -171,16 +174,11 @@ class TestFastAPIEndpoints:
         client, mock_rag_system = test_client
 
         # Mock successful response even for empty query
-        mock_rag_system.query.return_value = (
-            "Please provide a specific question.",
-            []
-        )
+        mock_rag_system.query.return_value = ("Please provide a specific question.", [])
         mock_rag_system.session_manager.create_session.return_value = "session_empty"
 
         # Make request with empty query
-        response = client.post("/api/query", json={
-            "query": ""
-        })
+        response = client.post("/api/query", json={"query": ""})
 
         # Verify response (should still work)
         assert response.status_code == 200
@@ -194,7 +192,11 @@ class TestFastAPIEndpoints:
         # Mock analytics response
         mock_rag_system.get_course_analytics.return_value = {
             "total_courses": 3,
-            "course_titles": ["Python Basics", "JavaScript Fundamentals", "Data Science"]
+            "course_titles": [
+                "Python Basics",
+                "JavaScript Fundamentals",
+                "Data Science",
+            ],
         }
 
         # Make request
@@ -216,7 +218,9 @@ class TestFastAPIEndpoints:
         client, mock_rag_system = test_client
 
         # Mock analytics to raise exception
-        mock_rag_system.get_course_analytics.side_effect = Exception("Database unavailable")
+        mock_rag_system.get_course_analytics.side_effect = Exception(
+            "Database unavailable"
+        )
 
         # Make request
         response = client.get("/api/courses")
@@ -232,7 +236,7 @@ class TestFastAPIEndpoints:
         # Mock empty analytics
         mock_rag_system.get_course_analytics.return_value = {
             "total_courses": 0,
-            "course_titles": []
+            "course_titles": [],
         }
 
         # Make request
@@ -253,7 +257,10 @@ class TestFastAPIEndpoints:
         response = client.get("/")
 
         # Should return HTML content (even if mocked)
-        assert response.status_code in [200, 404]  # 404 if no frontend files in test env
+        assert response.status_code in [
+            200,
+            404,
+        ]  # 404 if no frontend files in test env
 
     def test_content_type_headers(self, test_client):
         """Test that API responses have correct content type"""
@@ -293,14 +300,20 @@ class TestFastAPIEndpoints:
         mock_rag_system.query.side_effect = [
             ("First response", ["Source 1"]),
             ("Second response", ["Source 2"]),
-            ("Third response", [])
+            ("Third response", []),
         ]
         mock_rag_system.session_manager.create_session.return_value = "session_multi"
 
         # Make multiple requests
         response1 = client.post("/api/query", json={"query": "First question"})
-        response2 = client.post("/api/query", json={"query": "Second question", "session_id": "session_multi"})
-        response3 = client.post("/api/query", json={"query": "Third question", "session_id": "session_multi"})
+        response2 = client.post(
+            "/api/query",
+            json={"query": "Second question", "session_id": "session_multi"},
+        )
+        response3 = client.post(
+            "/api/query",
+            json={"query": "Third question", "session_id": "session_multi"},
+        )
 
         # Verify all responses
         assert response1.status_code == 200
@@ -321,12 +334,13 @@ class TestErrorScenarios:
     @pytest.fixture
     def test_client_error_scenarios(self):
         """Create test client for error scenario testing"""
-        with patch('app.RAGSystem') as mock_rag_class:
+        with patch("app.RAGSystem") as mock_rag_class:
             mock_rag_instance = Mock()
             mock_rag_class.return_value = mock_rag_instance
 
-            from app import app
             import app as app_module
+            from app import app
+
             app_module.rag_system = mock_rag_instance
 
             return TestClient(app), mock_rag_instance
@@ -337,7 +351,9 @@ class TestErrorScenarios:
 
         # Mock ChromaDB connection error
         mock_rag_system.query.side_effect = Exception("ChromaDB: Connection refused")
-        mock_rag_system.session_manager.create_session.return_value = "session_chroma_error"
+        mock_rag_system.session_manager.create_session.return_value = (
+            "session_chroma_error"
+        )
 
         response = client.post("/api/query", json={"query": "Test ChromaDB error"})
 
@@ -349,8 +365,12 @@ class TestErrorScenarios:
         client, mock_rag_system = test_client_error_scenarios
 
         # Mock Anthropic API error
-        mock_rag_system.query.side_effect = Exception("Anthropic API: Rate limit exceeded")
-        mock_rag_system.session_manager.create_session.return_value = "session_api_error"
+        mock_rag_system.query.side_effect = Exception(
+            "Anthropic API: Rate limit exceeded"
+        )
+        mock_rag_system.session_manager.create_session.return_value = (
+            "session_api_error"
+        )
 
         response = client.post("/api/query", json={"query": "Test API error"})
 
@@ -362,8 +382,12 @@ class TestErrorScenarios:
         client, mock_rag_system = test_client_error_scenarios
 
         # Mock tool execution error
-        mock_rag_system.query.side_effect = Exception("Tool execution failed: search_course_content")
-        mock_rag_system.session_manager.create_session.return_value = "session_tool_error"
+        mock_rag_system.query.side_effect = Exception(
+            "Tool execution failed: search_course_content"
+        )
+        mock_rag_system.session_manager.create_session.return_value = (
+            "session_tool_error"
+        )
 
         response = client.post("/api/query", json={"query": "Test tool error"})
 
@@ -375,8 +399,12 @@ class TestErrorScenarios:
         client, mock_rag_system = test_client_error_scenarios
 
         # Mock vector store error
-        mock_rag_system.query.side_effect = Exception("Vector store: Embedding model not found")
-        mock_rag_system.session_manager.create_session.return_value = "session_vector_error"
+        mock_rag_system.query.side_effect = Exception(
+            "Vector store: Embedding model not found"
+        )
+        mock_rag_system.session_manager.create_session.return_value = (
+            "session_vector_error"
+        )
 
         response = client.post("/api/query", json={"query": "Test vector error"})
 
@@ -388,8 +416,12 @@ class TestErrorScenarios:
         client, mock_rag_system = test_client_error_scenarios
 
         # Mock session manager error
-        mock_rag_system.query.side_effect = Exception("Session manager: Memory overflow")
-        mock_rag_system.session_manager.create_session.return_value = "session_memory_error"
+        mock_rag_system.query.side_effect = Exception(
+            "Session manager: Memory overflow"
+        )
+        mock_rag_system.session_manager.create_session.return_value = (
+            "session_memory_error"
+        )
 
         response = client.post("/api/query", json={"query": "Test session error"})
 
@@ -402,31 +434,39 @@ class TestStartupEvent:
 
     def test_startup_event_successful_loading(self):
         """Test successful document loading on startup"""
-        with patch('app.rag_system') as mock_rag_system, \
-             patch('app.os.path.exists', return_value=True):
+        with (
+            patch("app.rag_system") as mock_rag_system,
+            patch("app.os.path.exists", return_value=True),
+        ):
 
             # Mock successful document loading
             mock_rag_system.add_course_folder.return_value = (3, 150)
 
             # Import to trigger startup event simulation
-            from app import startup_event
-
             # Manually call startup event for testing
             import asyncio
+
+            from app import startup_event
+
             asyncio.run(startup_event())
 
             # Verify document loading was attempted
-            mock_rag_system.add_course_folder.assert_called_once_with("../docs", clear_existing=False)
+            mock_rag_system.add_course_folder.assert_called_once_with(
+                "../docs", clear_existing=False
+            )
 
     def test_startup_event_no_docs_folder(self):
         """Test startup when docs folder doesn't exist"""
-        with patch('app.rag_system') as mock_rag_system, \
-             patch('app.os.path.exists', return_value=False):
-
-            from app import startup_event
+        with (
+            patch("app.rag_system") as mock_rag_system,
+            patch("app.os.path.exists", return_value=False),
+        ):
 
             # Manually call startup event
             import asyncio
+
+            from app import startup_event
+
             asyncio.run(startup_event())
 
             # Verify no document loading was attempted
@@ -434,16 +474,21 @@ class TestStartupEvent:
 
     def test_startup_event_loading_error(self):
         """Test startup event with document loading errors"""
-        with patch('app.rag_system') as mock_rag_system, \
-             patch('app.os.path.exists', return_value=True):
+        with (
+            patch("app.rag_system") as mock_rag_system,
+            patch("app.os.path.exists", return_value=True),
+        ):
 
             # Mock loading error
-            mock_rag_system.add_course_folder.side_effect = Exception("Failed to load documents")
-
-            from app import startup_event
+            mock_rag_system.add_course_folder.side_effect = Exception(
+                "Failed to load documents"
+            )
 
             # Should not raise exception (error is caught and printed)
             import asyncio
+
+            from app import startup_event
+
             asyncio.run(startup_event())
 
             # Verify loading was attempted

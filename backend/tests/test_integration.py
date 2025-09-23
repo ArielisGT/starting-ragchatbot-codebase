@@ -1,9 +1,10 @@
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 # Add backend to path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from config import config
 from rag_system import RAGSystem
@@ -55,9 +56,9 @@ class TestRealSystemIntegration:
             results = real_rag_system.vector_store.search("test query")
 
             # Should return SearchResults object
-            assert hasattr(results, 'documents')
-            assert hasattr(results, 'metadata')
-            assert hasattr(results, 'error')
+            assert hasattr(results, "documents")
+            assert hasattr(results, "metadata")
+            assert hasattr(results, "error")
 
             # Either successful empty results or error message
             if results.error:
@@ -96,7 +97,11 @@ class TestRealSystemIntegration:
             # Expected to fail due to invalid API key
             print(f"AI Generator failed as expected (invalid API key): {e}")
             # Check if it's an authentication error vs system error
-            assert "api" in str(e).lower() or "auth" in str(e).lower() or "key" in str(e).lower()
+            assert (
+                "api" in str(e).lower()
+                or "auth" in str(e).lower()
+                or "key" in str(e).lower()
+            )
 
     def test_rag_system_query_without_api_key(self, real_rag_system):
         """Test full RAG system query without valid API key"""
@@ -145,7 +150,9 @@ class TestRealSystemIntegration:
                     if results.error:
                         print(f"Search after loading failed: {results.error}")
                     else:
-                        print(f"Search after loading found {len(results.documents)} results")
+                        print(
+                            f"Search after loading found {len(results.documents)} results"
+                        )
 
             except Exception as e:
                 print(f"Document loading failed: {e}")
@@ -160,10 +167,20 @@ class TestRealSystemIntegration:
             vector_store = real_rag_system.vector_store
 
             # Test collection access
-            catalog_count = len(vector_store.course_catalog.get()['ids']) if vector_store.course_catalog.get()['ids'] else 0
-            content_count = len(vector_store.course_content.get()['ids']) if vector_store.course_content.get()['ids'] else 0
+            catalog_count = (
+                len(vector_store.course_catalog.get()["ids"])
+                if vector_store.course_catalog.get()["ids"]
+                else 0
+            )
+            content_count = (
+                len(vector_store.course_content.get()["ids"])
+                if vector_store.course_content.get()["ids"]
+                else 0
+            )
 
-            print(f"ChromaDB connection successful - Catalog: {catalog_count}, Content: {content_count}")
+            print(
+                f"ChromaDB connection successful - Catalog: {catalog_count}, Content: {content_count}"
+            )
 
         except Exception as e:
             print(f"ChromaDB connection failed: {e}")

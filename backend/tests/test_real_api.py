@@ -1,9 +1,10 @@
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 # Add backend to path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from config import config
 from rag_system import RAGSystem
@@ -21,7 +22,9 @@ class TestRealAPIIntegration:
         """Test a real query with the actual system"""
         try:
             # Test a course-related question that should trigger search
-            response, sources = real_rag_system.query("What is MCP in the context of AI applications?")
+            response, sources = real_rag_system.query(
+                "What is MCP in the context of AI applications?"
+            )
 
             print(f"Response: {response[:200]}...")
             print(f"Sources: {sources}")
@@ -34,7 +37,9 @@ class TestRealAPIIntegration:
             if len(sources) > 0:
                 print("SUCCESS: System found relevant sources")
             else:
-                print("INFO: No sources found (Claude may have answered from general knowledge)")
+                print(
+                    "INFO: No sources found (Claude may have answered from general knowledge)"
+                )
 
         except Exception as e:
             print(f"FAILURE: Real system query failed: {e}")
@@ -62,7 +67,9 @@ class TestRealAPIIntegration:
     def test_real_system_course_specific_query(self, real_rag_system):
         """Test a course-specific query"""
         try:
-            response, sources = real_rag_system.query("How do you use ChromaDB for vector search?")
+            response, sources = real_rag_system.query(
+                "How do you use ChromaDB for vector search?"
+            )
 
             print(f"Course-specific response: {response[:200]}...")
             print(f"Course-specific sources: {sources}")

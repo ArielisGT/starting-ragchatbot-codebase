@@ -21,6 +21,28 @@ chmod +x run.sh
 cd backend && uv run uvicorn app:app --reload --port 8000
 ```
 
+### Code Quality Commands
+```bash
+# Format code (Black + isort)
+./scripts/format.sh
+
+# Run linting checks (flake8 + mypy)
+./scripts/lint.sh
+
+# Run all quality checks (format check + lint + tests) - strict mode
+./scripts/quality.sh
+
+# Comprehensive quality assessment - reports status without failing
+./scripts/quality-check.sh
+
+# Individual tool commands
+uv run black .                    # Format with Black
+uv run isort .                    # Sort imports
+uv run flake8 backend/ main.py    # Lint with flake8
+uv run mypy backend/ main.py      # Type check with mypy
+uv run pytest -v                  # Run tests
+```
+
 ### Environment Setup
 - Copy `.env.example` to `.env` and add your `ANTHROPIC_API_KEY`
 - Application runs on `http://localhost:8000`

@@ -1,18 +1,20 @@
-import pytest
-from unittest.mock import Mock, MagicMock, patch
-import sys
 import os
+import sys
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 # Add backend to path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from ai_generator import AIGenerator
-from search_tools import ToolManager, CourseSearchTool
+from search_tools import CourseSearchTool, ToolManager
 from vector_store import SearchResults
 
 
 class MockAnthropicResponse:
     """Mock response from Anthropic API"""
+
     def __init__(self, content_blocks, stop_reason="end_turn"):
         self.content = content_blocks
         self.stop_reason = stop_reason
@@ -20,6 +22,7 @@ class MockAnthropicResponse:
 
 class MockToolUseBlock:
     """Mock tool use content block"""
+
     def __init__(self, tool_name, tool_input, tool_id="test_id"):
         self.type = "tool_use"
         self.name = tool_name
@@ -29,6 +32,7 @@ class MockToolUseBlock:
 
 class MockTextBlock:
     """Mock text content block"""
+
     def __init__(self, text):
         self.type = "text"
         self.text = text
@@ -46,7 +50,9 @@ class TestAIGenerator:
     @pytest.fixture
     def ai_generator(self, mock_anthropic_client):
         """Create AI Generator with mocked client"""
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_anthropic_client):
+        with patch(
+            "ai_generator.anthropic.Anthropic", return_value=mock_anthropic_client
+        ):
             generator = AIGenerator("test_api_key", "claude-sonnet-4-20250514")
             generator.client = mock_anthropic_client
             return generator
@@ -55,25 +61,27 @@ class TestAIGenerator:
     def mock_tool_manager(self):
         """Create mock tool manager"""
         manager = Mock()
-        manager.get_tool_definitions.return_value = [{
-            "name": "search_course_content",
-            "description": "Search course materials",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "Search query"}
+        manager.get_tool_definitions.return_value = [
+            {
+                "name": "search_course_content",
+                "description": "Search course materials",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query"}
+                    },
+                    "required": ["query"],
                 },
-                "required": ["query"]
             }
-        }]
+        ]
         return manager
 
     def test_generate_response_without_tools(self, ai_generator, mock_anthropic_client):
         """Test simple response generation without tools"""
         # Mock response without tool use
-        mock_response = MockAnthropicResponse([
-            MockTextBlock("This is a simple response")
-        ])
+        mock_response = MockAnthropicResponse(
+            [MockTextBlock("This is a simple response")]
+        )
         mock_anthropic_client.messages.create.return_value = mock_response
 
         result = ai_generator.generate_response("What is 2+2?")
@@ -90,18 +98,20 @@ class TestAIGenerator:
 
         assert result == "This is a simple response"
 
-    def test_generate_response_with_tools_no_use(self, ai_generator, mock_anthropic_client, mock_tool_manager):
+    def test_generate_response_with_tools_no_use(
+        self, ai_generator, mock_anthropic_client, mock_tool_manager
+    ):
         """Test response generation with tools available but not used"""
         # Mock response without tool use
-        mock_response = MockAnthropicResponse([
-            MockTextBlock("This is a general knowledge response")
-        ])
+        mock_response = MockAnthropicResponse(
+            [MockTextBlock("This is a general knowledge response")]
+        )
         mock_anthropic_client.messages.create.return_value = mock_response
 
         result = ai_generator.generate_response(
             "What is Python?",
             tools=mock_tool_manager.get_tool_definitions(),
-            tool_manager=mock_tool_manager
+            tool_manager=mock_tool_manager,
         )
 
         # Verify API call included tools
@@ -112,19 +122,29 @@ class TestAIGenerator:
 
         assert result == "This is a general knowledge response"
 
-    def test_generate_response_with_tool_use(self, ai_generator, mock_anthropic_client, mock_tool_manager):
+    def test_generate_response_with_tool_use(
+        self, ai_generator, mock_anthropic_client, mock_tool_manager
+    ):
         """Test response generation with tool use"""
         # Mock initial response with tool use
-        initial_response = MockAnthropicResponse([
-            MockToolUseBlock("search_course_content", {"query": "Python basics"})
-        ], stop_reason="tool_use")
+        initial_response = MockAnthropicResponse(
+            [MockToolUseBlock("search_course_content", {"query": "Python basics"})],
+            stop_reason="tool_use",
+        )
 
         # Mock final response after tool execution
-        final_response = MockAnthropicResponse([
-            MockTextBlock("Based on the search results, Python is a programming language...")
-        ])
+        final_response = MockAnthropicResponse(
+            [
+                MockTextBlock(
+                    "Based on the search results, Python is a programming language..."
+                )
+            ]
+        )
 
-        mock_anthropic_client.messages.create.side_effect = [initial_response, final_response]
+        mock_anthropic_client.messages.create.side_effect = [
+            initial_response,
+            final_response,
+        ]
 
         # Mock tool execution
         mock_tool_manager.execute_tool.return_value = "Python course content found"
@@ -132,30 +152,35 @@ class TestAIGenerator:
         result = ai_generator.generate_response(
             "What is Python?",
             tools=mock_tool_manager.get_tool_definitions(),
-            tool_manager=mock_tool_manager
+            tool_manager=mock_tool_manager,
         )
 
         # Verify tool was executed
         mock_tool_manager.execute_tool.assert_called_once_with(
-            "search_course_content",
-            query="Python basics"
+            "search_course_content", query="Python basics"
         )
 
         # Verify two API calls were made
         assert mock_anthropic_client.messages.create.call_count == 2
 
         # Verify final response
-        assert result == "Based on the search results, Python is a programming language..."
+        assert (
+            result == "Based on the search results, Python is a programming language..."
+        )
 
-    def test_generate_response_with_conversation_history(self, ai_generator, mock_anthropic_client):
+    def test_generate_response_with_conversation_history(
+        self, ai_generator, mock_anthropic_client
+    ):
         """Test response generation with conversation history"""
-        mock_response = MockAnthropicResponse([
-            MockTextBlock("Continuing the conversation...")
-        ])
+        mock_response = MockAnthropicResponse(
+            [MockTextBlock("Continuing the conversation...")]
+        )
         mock_anthropic_client.messages.create.return_value = mock_response
 
         history = "User: Hello\nAssistant: Hi there!"
-        result = ai_generator.generate_response("How are you?", conversation_history=history)
+        result = ai_generator.generate_response(
+            "How are you?", conversation_history=history
+        )
 
         # Verify system message includes history
         call_args = mock_anthropic_client.messages.create.call_args
@@ -164,32 +189,41 @@ class TestAIGenerator:
 
         assert result == "Continuing the conversation..."
 
-    def test_handle_tool_execution_multiple_tools(self, ai_generator, mock_anthropic_client, mock_tool_manager):
+    def test_handle_tool_execution_multiple_tools(
+        self, ai_generator, mock_anthropic_client, mock_tool_manager
+    ):
         """Test handling multiple tool calls in one response"""
         # Create initial response with multiple tool uses
-        initial_response = MockAnthropicResponse([
-            MockToolUseBlock("search_course_content", {"query": "Python"}, "tool1"),
-            MockToolUseBlock("search_course_content", {"query": "JavaScript"}, "tool2")
-        ], stop_reason="tool_use")
+        initial_response = MockAnthropicResponse(
+            [
+                MockToolUseBlock("search_course_content", {"query": "Python"}, "tool1"),
+                MockToolUseBlock(
+                    "search_course_content", {"query": "JavaScript"}, "tool2"
+                ),
+            ],
+            stop_reason="tool_use",
+        )
 
         # Mock final response
-        final_response = MockAnthropicResponse([
-            MockTextBlock("Combined results from multiple searches")
-        ])
+        final_response = MockAnthropicResponse(
+            [MockTextBlock("Combined results from multiple searches")]
+        )
 
         # Mock tool executions
         mock_tool_manager.execute_tool.side_effect = [
             "Python content",
-            "JavaScript content"
+            "JavaScript content",
         ]
 
         # Prepare base parameters
         base_params = {
             "messages": [{"role": "user", "content": "Compare Python and JavaScript"}],
-            "system": "Test system message"
+            "system": "Test system message",
         }
 
-        result = ai_generator._handle_tool_execution(initial_response, base_params, mock_tool_manager)
+        result = ai_generator._handle_tool_execution(
+            initial_response, base_params, mock_tool_manager
+        )
 
         # Verify both tools were executed
         assert mock_tool_manager.execute_tool.call_count == 2
@@ -203,17 +237,20 @@ class TestAIGenerator:
 
         assert result == "Combined results from multiple searches"
 
-    def test_handle_tool_execution_error(self, ai_generator, mock_anthropic_client, mock_tool_manager):
+    def test_handle_tool_execution_error(
+        self, ai_generator, mock_anthropic_client, mock_tool_manager
+    ):
         """Test handling tool execution errors"""
         # Mock initial response with tool use
-        initial_response = MockAnthropicResponse([
-            MockToolUseBlock("search_course_content", {"query": "test"})
-        ], stop_reason="tool_use")
+        initial_response = MockAnthropicResponse(
+            [MockToolUseBlock("search_course_content", {"query": "test"})],
+            stop_reason="tool_use",
+        )
 
         # Mock final response
-        final_response = MockAnthropicResponse([
-            MockTextBlock("Error handled response")
-        ])
+        final_response = MockAnthropicResponse(
+            [MockTextBlock("Error handled response")]
+        )
 
         mock_anthropic_client.messages.create.return_value = final_response
 
@@ -222,10 +259,12 @@ class TestAIGenerator:
 
         base_params = {
             "messages": [{"role": "user", "content": "Test query"}],
-            "system": "Test system"
+            "system": "Test system",
         }
 
-        result = ai_generator._handle_tool_execution(initial_response, base_params, mock_tool_manager)
+        result = ai_generator._handle_tool_execution(
+            initial_response, base_params, mock_tool_manager
+        )
 
         # Verify error was passed to final API call
         final_call_args = mock_anthropic_client.messages.create.call_args
@@ -267,7 +306,9 @@ class TestAIGenerator:
         assert call_args["messages"][0]["role"] == "user"
         assert call_args["messages"][0]["content"] == "test query"
 
-    def test_tool_choice_auto_setting(self, ai_generator, mock_anthropic_client, mock_tool_manager):
+    def test_tool_choice_auto_setting(
+        self, ai_generator, mock_anthropic_client, mock_tool_manager
+    ):
         """Test that tool_choice is set to auto when tools are provided"""
         mock_response = MockAnthropicResponse([MockTextBlock("test")])
         mock_anthropic_client.messages.create.return_value = mock_response
@@ -275,34 +316,44 @@ class TestAIGenerator:
         ai_generator.generate_response(
             "test",
             tools=mock_tool_manager.get_tool_definitions(),
-            tool_manager=mock_tool_manager
+            tool_manager=mock_tool_manager,
         )
 
         call_args = mock_anthropic_client.messages.create.call_args[1]
         assert call_args["tool_choice"] == {"type": "auto"}
 
-    def test_message_flow_in_tool_execution(self, ai_generator, mock_anthropic_client, mock_tool_manager):
+    def test_message_flow_in_tool_execution(
+        self, ai_generator, mock_anthropic_client, mock_tool_manager
+    ):
         """Test proper message flow during tool execution"""
         # Mock tool use response
-        initial_response = MockAnthropicResponse([
-            MockTextBlock("I'll search for that information."),
-            MockToolUseBlock("search_course_content", {"query": "test"})
-        ], stop_reason="tool_use")
+        initial_response = MockAnthropicResponse(
+            [
+                MockTextBlock("I'll search for that information."),
+                MockToolUseBlock("search_course_content", {"query": "test"}),
+            ],
+            stop_reason="tool_use",
+        )
 
         # Mock final response
-        final_response = MockAnthropicResponse([
-            MockTextBlock("Based on the search results...")
-        ])
+        final_response = MockAnthropicResponse(
+            [MockTextBlock("Based on the search results...")]
+        )
 
-        mock_anthropic_client.messages.create.side_effect = [initial_response, final_response]
+        mock_anthropic_client.messages.create.side_effect = [
+            initial_response,
+            final_response,
+        ]
         mock_tool_manager.execute_tool.return_value = "Search results found"
 
         base_params = {
             "messages": [{"role": "user", "content": "Original query"}],
-            "system": "System prompt"
+            "system": "System prompt",
         }
 
-        result = ai_generator._handle_tool_execution(initial_response, base_params, mock_tool_manager)
+        result = ai_generator._handle_tool_execution(
+            initial_response, base_params, mock_tool_manager
+        )
 
         # Verify final API call structure
         final_call = mock_anthropic_client.messages.create.call_args_list[1]
@@ -347,7 +398,7 @@ class TestAIGeneratorIntegration:
     @pytest.fixture
     def ai_generator_real(self):
         """Create AI generator with real Anthropic client mock"""
-        with patch('ai_generator.anthropic.Anthropic') as mock_anthropic:
+        with patch("ai_generator.anthropic.Anthropic") as mock_anthropic:
             client = Mock()
             mock_anthropic.return_value = client
             generator = AIGenerator("test_key", "claude-sonnet-4-20250514")
@@ -362,18 +413,23 @@ class TestAIGeneratorIntegration:
         mock_search_results = SearchResults(
             documents=["Python is a programming language"],
             metadata=[{"course_title": "Python Basics", "lesson_number": 1}],
-            distances=[0.1]
+            distances=[0.1],
         )
         mock_vector_store.search.return_value = mock_search_results
 
         # Mock Claude responses
-        tool_use_response = MockAnthropicResponse([
-            MockToolUseBlock("search_course_content", {"query": "Python programming"})
-        ], stop_reason="tool_use")
+        tool_use_response = MockAnthropicResponse(
+            [
+                MockToolUseBlock(
+                    "search_course_content", {"query": "Python programming"}
+                )
+            ],
+            stop_reason="tool_use",
+        )
 
-        final_response = MockAnthropicResponse([
-            MockTextBlock("Python is a versatile programming language used for...")
-        ])
+        final_response = MockAnthropicResponse(
+            [MockTextBlock("Python is a versatile programming language used for...")]
+        )
 
         mock_client.messages.create.side_effect = [tool_use_response, final_response]
 
@@ -381,14 +437,12 @@ class TestAIGeneratorIntegration:
         result = ai_generator.generate_response(
             "What is Python?",
             tools=tool_manager.get_tool_definitions(),
-            tool_manager=tool_manager
+            tool_manager=tool_manager,
         )
 
         # Verify search was called
         mock_vector_store.search.assert_called_once_with(
-            query="Python programming",
-            course_name=None,
-            lesson_number=None
+            query="Python programming", course_name=None, lesson_number=None
         )
 
         # Verify sources were tracked
